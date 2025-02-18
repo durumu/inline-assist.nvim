@@ -1,61 +1,16 @@
 from __future__ import annotations
 
-from functools import cache
-from typing import TYPE_CHECKING
-
-import anthropic
 import pynvim
-from prompting import make_rewrite_prompt
+from structs.diagnostic import Diagnostic
 
-if TYPE_CHECKING:
-    from pynvim.api import Buffer, Nvim
-
-
-@cache
-def anthropic_client():
-    # TODO: async?
-    return anthropic.Anthropic()
-
-
-def get_completion(
-    buf: Buffer,
-    rewrite_range: tuple[int, int],  # [start, end)
-    user_prompt: str,
-) -> list[str]:
-    rewrite_start, rewrite_end = rewrite_range
-    if rewrite_start == rewrite_end:
-        return []
-
-    prompt = make_rewrite_prompt(
-        document_lines=buf[:],
-        rewrite_range=rewrite_range,
-        user_prompt=user_prompt,
-        filetype=buf.options["filetype"],
-    )
-
-    message = anthropic_client().messages.create(
-        model="claude-3-5-sonnet-latest",
-        max_tokens=8192,
-        messages=[
-            {"role": "user", "content": prompt},
-            # todo: maybe try out giving the assistant the ability to think?
-            {"role": "assistant", "content": "<rewritten>"},
-        ],
-    )
-
-    (block,) = message.content
-    assert isinstance(block, anthropic.types.text_block.TextBlock)
-    lines = block.text.strip().split("\n")
-    # todo: maybe do something nicer with the error?
-    assert lines[-1] == "</rewritten>", "bad completion"
-    return lines[:-1]
+from llm import get_rewrite
 
 
 @pynvim.plugin
 class InlineAssist:
-    nvim: Nvim
+    nvim: pynvim.Nvim
 
-    def __init__(self, nvim: Nvim) -> None:
+    def __init__(self, nvim: pynvim.Nvim) -> None:
         self.nvim = nvim
 
     @pynvim.command("InlineAssist", nargs="*", range="")
@@ -68,14 +23,28 @@ class InlineAssist:
         if not line_range or line_range == (0, 0):
             line_range = (1, len(buf))
 
-        start_row, end_row = line_range
+        start_lnum, end_lnum = line_range
         # transform it into 0-indexed half-open [start, end) range
-        start_row -= 1
+        start_lnum -= 1
 
         user_prompt = " ".join(args)
 
-        completion = get_completion(buf, (start_row, end_row), user_prompt)
+        all_diagnostics = [
+            Diagnostic(**d) for d in self.nvim.exec_lua("return vim.diagnostic.get()")
+        ]
+        # The diagnostic's range is [lnum, end_lnum] (inclusive).
+        relevant_diagnostics = [
+            d for d in all_diagnostics if d.lnum < end_lnum and start_lnum < d.end_lnum
+        ]
+
+        rewrite = get_rewrite(
+            buf[:],
+            (start_lnum, end_lnum),
+            user_prompt,
+            buf.options["filetype"],
+            relevant_diagnostics,
+        )
 
         # Replace the selected text with the result for now
-        # eventually let's have an actual dialog
-        buf[start_row:end_row] = completion
+        # eventually let's have a confirmation dialog?
+        buf[start_lnum:end_lnum] = rewrite
