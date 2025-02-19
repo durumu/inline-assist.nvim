@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import textwrap
 from functools import cache
+from typing import Iterable
 
 import anthropic
 
@@ -20,7 +21,7 @@ def get_rewrite(
     user_prompt: str,
     filetype: str,
     diagnostics: list[Diagnostic],
-) -> list[str]:
+) -> Iterable[str]:
     rewrite_start, rewrite_end = rewrite_range
     if rewrite_start == rewrite_end:
         return []
@@ -33,7 +34,7 @@ def get_rewrite(
         diagnostics=diagnostics,
     )
 
-    message = anthropic_client().messages.create(
+    stream = anthropic_client().messages.create(
         model="claude-3-5-sonnet-latest",
         max_tokens=8192,
         messages=[
@@ -43,14 +44,16 @@ def get_rewrite(
             # todo: maybe try out giving the assistant the ability to think first?
             {"role": "assistant", "content": "<rewritten>"},
         ],
+        stream=True,
     )
-
-    (block,) = message.content
-    assert isinstance(block, anthropic.types.text_block.TextBlock)
-    lines = block.text.strip().split("\n")
-    # todo: maybe do something nicer with the error?
-    assert lines[-1] == "</rewritten>", "bad rewrite"
-    return lines[:-1]
+    for event in stream:
+        if event.type == "content_block_delta" and event.delta.type == "text_delta":
+            text = event.delta.text
+            if "</rewritten>" in text:
+                # Yield everything up to the closing tag then stop
+                yield text[: text.index("</rewritten>")]
+                break
+            yield text
 
 
 def _make_rewrite_prompt(

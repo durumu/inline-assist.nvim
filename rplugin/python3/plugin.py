@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import pynvim
-from structs.diagnostic import Diagnostic
 
 from llm import get_rewrite
+from structs.diagnostic import Diagnostic
 
 
 @pynvim.plugin
@@ -37,14 +37,15 @@ class InlineAssist:
             d for d in all_diagnostics if d.lnum < end_lnum and start_lnum < d.end_lnum
         ]
 
-        rewrite = get_rewrite(
-            buf[:],
-            (start_lnum, end_lnum),
-            user_prompt,
-            buf.options["filetype"],
-            relevant_diagnostics,
+        # TODO: this should stream the rewrite
+        rewrite = "".join(
+            get_rewrite(
+                buf[:],
+                (start_lnum, end_lnum),
+                user_prompt,
+                buf.options["filetype"],
+                relevant_diagnostics,
+            )
         )
 
-        # Replace the selected text with the result for now
-        # eventually let's have a confirmation dialog?
         buf[start_lnum:end_lnum] = rewrite
