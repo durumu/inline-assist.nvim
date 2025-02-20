@@ -41,7 +41,9 @@ class InlineAssist:
         )
         # The diagnostic's range is [lnum, end_lnum] (inclusive).
         relevant_diagnostics = [
-            d for d in all_diagnostics if d.lnum < end_lnum and start_lnum < d.end_lnum
+            d
+            for d in all_diagnostics
+            if d.lnum <= end_lnum and start_lnum <= d.end_lnum
         ]
 
         rewrite_stream = stream_rewritten_lines(
