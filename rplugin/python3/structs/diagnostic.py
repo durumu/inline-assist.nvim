@@ -25,3 +25,16 @@ class Diagnostic:
     code: str | int | None = None
     user_data: Any | None = None
     namespace: int | None = None
+
+    @classmethod
+    def from_nvim_diagnostic(cls, nvim_diagnostic: dict[str, Any]) -> Diagnostic:
+        fields = {
+            field.name: field.type for field in Diagnostic.__dataclass_fields__.values()
+        }
+        kwargs = {}
+        for field_name, field_type in fields.items():
+            value = nvim_diagnostic[field_name]
+            if field_type == DiagnosticSeverity:
+                value = DiagnosticSeverity(value)
+            kwargs[field_name] = value
+        return Diagnostic(**kwargs)

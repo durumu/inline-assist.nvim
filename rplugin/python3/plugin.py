@@ -6,6 +6,10 @@ from llm import stream_rewritten_lines
 from structs.diagnostic import Diagnostic
 
 
+def escape_quotes(s: str) -> str:
+    return s.replace('"', r"\"")
+
+
 @pynvim.plugin
 class InlineAssist:
     nvim: pynvim.Nvim
@@ -29,9 +33,12 @@ class InlineAssist:
 
         user_prompt = " ".join(args)
 
-        all_diagnostics = [
-            Diagnostic(**d) for d in self.nvim.exec_lua("return vim.diagnostic.get()")
-        ]
+        all_diagnostics = list(
+            map(
+                Diagnostic.from_nvim_diagnostic,
+                self.nvim.exec_lua("return vim.diagnostic.get()"),
+            )
+        )
         # The diagnostic's range is [lnum, end_lnum] (inclusive).
         relevant_diagnostics = [
             d for d in all_diagnostics if d.lnum < end_lnum and start_lnum < d.end_lnum
@@ -45,18 +52,10 @@ class InlineAssist:
             relevant_diagnostics,
         )
 
-        # Delete this to prepare for a rewrite.
-        # TODO: We should really do some diffing
         buf[start_lnum:end_lnum] = ""
-
-        fragments_starting_next_line = []
-        current_lnum = start_lnum
-        for chunk in rewrite_stream:
-            # start_of_next_line is the empty string if chunk ends in a newline.
-            *lines, start_of_next_line = chunk.split("\n")
-            if lines:
-                lines[0] = "".join([*fragments_starting_next_line, lines[0]])
-                buf[current_lnum:current_lnum] = lines
-                current_lnum += len(lines)
-                fragments_starting_next_line = []
-            fragments_starting_next_line.append(start_of_next_line)
+        for i, line in enumerate(rewrite_stream):
+            insert_lnum = start_lnum + i
+            # janky but it works!
+            self.nvim.command(
+                f'undojoin | lua vim.api.nvim_buf_set_lines(0, {insert_lnum}, {insert_lnum}, false, {{"{escape_quotes(line)}"}})'
+            )

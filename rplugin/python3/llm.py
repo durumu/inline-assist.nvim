@@ -170,7 +170,7 @@ def _make_rewrite_prompt(
 
         Only make changes that are necessary to fulfill the prompt, leave everything else as is. All surrounding {content_type} will be preserved.
 
-        Start at the indentation level in the original file in the rewritten {content_type}, and make sure to match the indentation style used in the file. Don't stop until you've rewritten the entire section, even if you have no more changes to make, always write out the whole section with no unnecessary elisions.
+        Start at the indentation level in the original file in the rewritten {content_type}. Don't stop until you've rewritten the entire section, even if you have no more changes to make, always write out the whole section with no unnecessary elisions.
 
         Immediately start with the following format with no remarks. Enclose the exact {content_type} you are rewriting within <rewritten></rewritten>, as follows:
 
