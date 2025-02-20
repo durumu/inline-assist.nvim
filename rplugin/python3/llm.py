@@ -14,13 +14,16 @@ def anthropic_client():
     return anthropic.Anthropic()
 
 
-def stream_rewrite(
+def stream_rewritten_lines(
     document_lines: list[str],
     rewrite_range: tuple[int, int],  # [start, end)
     user_prompt: str,
     filetype: str,
     diagnostics: list[Diagnostic],
 ) -> Iterable[str]:
+    """
+    Stream a rewrite, line by line.
+    """
     rewrite_start, rewrite_end = rewrite_range
     if rewrite_start == rewrite_end:
         return []
@@ -46,20 +49,27 @@ def stream_rewrite(
         stream=True,
     )
 
+    fragments_starting_next_line = []
     is_first_chunk = True
     for event in stream:
         if event.type == "content_block_delta" and event.delta.type == "text_delta":
-            text = event.delta.text
+            chunk = event.delta.text
             if is_first_chunk:
                 # gross: we're not allowed to end the assistant message with whitespace,
                 # so we have to strip the first newline.
-                text = text.removeprefix("\n")
+                chunk = chunk.removeprefix("\n")
                 is_first_chunk = False
-            if "\n</rewritten>" in text:
-                # Yield everything up to the closing tag then stop
-                yield text[: text.index("\n</rewritten>")]
-                break
-            yield text
+
+            # start_of_next_line is the empty string if chunk ends in a newline.
+            *lines, start_of_next_line = chunk.split("\n")
+            if lines:
+                lines[0] = "".join([*fragments_starting_next_line, lines[0]])
+                fragments_starting_next_line = []
+            for line in lines:
+                if line.startswith("</rewritten>"):
+                    break
+                yield line
+            fragments_starting_next_line.append(start_of_next_line)
 
 
 def _make_rewrite_prompt(

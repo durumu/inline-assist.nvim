@@ -1,24 +1,9 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
-
 import pynvim
 
-from llm import stream_rewrite
+from llm import stream_rewritten_lines
 from structs.diagnostic import Diagnostic
-
-
-@contextmanager
-def atomically_undoable(nvim: pynvim.Nvim):
-    """
-    Context manager for specifying an atomically undoable operation.
-    """
-    buf = nvim.current.buffer
-    nvim.api.nvim_buf_start_extmark(buf, -1, 0, 0, {})
-    try:
-        yield
-    finally:
-        nvim.api.nvim_buf_end_extmark(buf, -1, 0, 0, {})
 
 
 @pynvim.plugin
@@ -52,7 +37,7 @@ class InlineAssist:
             d for d in all_diagnostics if d.lnum < end_lnum and start_lnum < d.end_lnum
         ]
 
-        rewrite_stream = stream_rewrite(
+        rewrite_stream = stream_rewritten_lines(
             buf[:],
             (start_lnum, end_lnum),
             user_prompt,
