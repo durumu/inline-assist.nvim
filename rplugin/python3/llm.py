@@ -11,11 +11,10 @@ from structs.diagnostic import Diagnostic
 
 @cache
 def anthropic_client():
-    # TODO: async?
     return anthropic.Anthropic()
 
 
-def get_rewrite(
+def stream_rewrite(
     document_lines: list[str],
     rewrite_range: tuple[int, int],  # [start, end)
     user_prompt: str,
@@ -46,12 +45,19 @@ def get_rewrite(
         ],
         stream=True,
     )
+
+    is_first_chunk = True
     for event in stream:
         if event.type == "content_block_delta" and event.delta.type == "text_delta":
             text = event.delta.text
-            if "</rewritten>" in text:
+            if is_first_chunk:
+                # gross: we're not allowed to end the assistant message with whitespace,
+                # so we have to strip the first newline.
+                text = text.removeprefix("\n")
+                is_first_chunk = False
+            if "\n</rewritten>" in text:
                 # Yield everything up to the closing tag then stop
-                yield text[: text.index("</rewritten>")]
+                yield text[: text.index("\n</rewritten>")]
                 break
             yield text
 
@@ -88,7 +94,7 @@ def _make_rewrite_prompt(
 
             <rewritten>
             {{REWRITTEN_{content_type.upper()}}}
-            </rewritten>
+            </rewritten
             """
         )
 
@@ -154,7 +160,7 @@ def _make_rewrite_prompt(
 
         Only make changes that are necessary to fulfill the prompt, leave everything else as is. All surrounding {content_type} will be preserved.
 
-        Start at the indentation level in the original file in the rewritten {content_type}. Don't stop until you've rewritten the entire section, even if you have no more changes to make, always write out the whole section with no unnecessary elisions.
+        Start at the indentation level in the original file in the rewritten {content_type}, and make sure to match the indentation style used in the file. Don't stop until you've rewritten the entire section, even if you have no more changes to make, always write out the whole section with no unnecessary elisions.
 
         Immediately start with the following format with no remarks. Enclose the exact {content_type} you are rewriting within <rewritten></rewritten>, as follows:
 

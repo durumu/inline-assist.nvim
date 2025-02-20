@@ -1,9 +1,24 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
+
 import pynvim
 
-from llm import get_rewrite
+from llm import stream_rewrite
 from structs.diagnostic import Diagnostic
+
+
+@contextmanager
+def atomically_undoable(nvim: pynvim.Nvim):
+    """
+    Context manager for specifying an atomically undoable operation.
+    """
+    buf = nvim.current.buffer
+    nvim.api.nvim_buf_start_extmark(buf, -1, 0, 0, {})
+    try:
+        yield
+    finally:
+        nvim.api.nvim_buf_end_extmark(buf, -1, 0, 0, {})
 
 
 @pynvim.plugin
@@ -19,7 +34,7 @@ class InlineAssist:
     ) -> None:
         buf = self.nvim.current.buffer
 
-        # line_range is a 1-indexed fully inclusive range
+        # line_range is a 1-indexed fully inclusive range (bleh!)
         if not line_range or line_range == (0, 0):
             line_range = (1, len(buf))
 
@@ -37,15 +52,26 @@ class InlineAssist:
             d for d in all_diagnostics if d.lnum < end_lnum and start_lnum < d.end_lnum
         ]
 
-        # TODO: this should stream the rewrite
-        rewrite = "".join(
-            get_rewrite(
-                buf[:],
-                (start_lnum, end_lnum),
-                user_prompt,
-                buf.options["filetype"],
-                relevant_diagnostics,
-            )
+        rewrite_stream = stream_rewrite(
+            buf[:],
+            (start_lnum, end_lnum),
+            user_prompt,
+            buf.options["filetype"],
+            relevant_diagnostics,
         )
 
-        buf[start_lnum:end_lnum] = rewrite
+        # Delete this to prepare for a rewrite.
+        # TODO: We should really do some diffing
+        buf[start_lnum:end_lnum] = ""
+
+        fragments_starting_next_line = []
+        current_lnum = start_lnum
+        for chunk in rewrite_stream:
+            # start_of_next_line is the empty string if chunk ends in a newline.
+            *lines, start_of_next_line = chunk.split("\n")
+            if lines:
+                lines[0] = "".join([*fragments_starting_next_line, lines[0]])
+                buf[current_lnum:current_lnum] = lines
+                current_lnum += len(lines)
+                fragments_starting_next_line = []
+            fragments_starting_next_line.append(start_of_next_line)

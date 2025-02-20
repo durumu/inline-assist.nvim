@@ -8,8 +8,11 @@ requires-python = ">=3.10"
 target-version = "py310"
 line-length = 88
 
-# Enable pycodestyle (`E`), Pyflakes (`F`), and import sorting (`I`)
-lint.select = ["E", "F", "I"]
+lint.select = [
+    "E", # pycodestyle
+    "F", # flake
+    "I", # isort
+]
 lint.ignore = ["E501"]
 
 # Allow autofix for all enabled rules (when `--fix`) is provided.
