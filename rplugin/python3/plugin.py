@@ -6,8 +6,10 @@ from llm import stream_rewritten_lines
 from structs.diagnostic import Diagnostic
 
 
-def escape_quotes(s: str) -> str:
-    return s.replace('"', r"\"")
+def escape_string(s: str) -> str:
+    # Replace single backslashes with double backslashes,
+    # then quotes with escaped quotes.
+    return s.replace("\\", "\\\\").replace('"', r"\"")
 
 
 @pynvim.plugin
@@ -59,5 +61,5 @@ class InlineAssist:
             insert_lnum = start_lnum + i
             # janky but it works!
             self.nvim.command(
-                f'undojoin | lua vim.api.nvim_buf_set_lines(0, {insert_lnum}, {insert_lnum}, false, {{"{escape_quotes(line)}"}})'
+                f'undojoin | lua vim.api.nvim_buf_set_lines(0, {insert_lnum}, {insert_lnum}, false, {{"{escape_string(line)}"}})'
             )
