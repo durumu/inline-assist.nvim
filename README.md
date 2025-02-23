@@ -6,7 +6,7 @@ A Neovim plugin implementing the AI inline assist feature from editors like Zed.
 
 Highlight some text in visual mode, then type `:InlineAssist Do some stuff`.
 
-I recommend binding `:InlineAssist ` to <C-CR> or <M-CR>.
+I recommend binding `:InlineAssist ` to `<C-CR>` or `<M-CR>`.
 
 ## Requirements
 
