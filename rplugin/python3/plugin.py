@@ -59,7 +59,10 @@ class InlineAssist:
         buf[start_lnum:end_lnum] = ""
         for i, line in enumerate(rewrite_stream):
             insert_lnum = start_lnum + i
-            # janky but it works!
+            # We don't want an extra newline added.
+            insert_start = insert_lnum
+            insert_end = insert_lnum + 1 if i == 0 else insert_lnum
+            # janky but we want to fuse the undo
             self.nvim.command(
-                f'undojoin | lua vim.api.nvim_buf_set_lines(0, {insert_lnum}, {insert_lnum}, false, {{"{escape_string(line)}"}})'
+                f'undojoin | lua vim.api.nvim_buf_set_lines(0, {insert_start}, {insert_end}, false, {{"{escape_string(line)}"}})'
             )
