@@ -175,7 +175,7 @@ def _make_rewrite_prompt(
 
         Don't stop until you've rewritten the entire section. Even if you have no more changes to make, always write out the whole section.
 
-        Enclose the exact {content_type} you are rewriting within <rewritten></rewritten>, without any unnecessary whitespace at the end, as follows:
+        Immediately start with the following format with no remarks. Enclose the exact {content_type} you are rewriting within <rewritten></rewritten>, without any unnecessary whitespace at the end, as follows:
 
         <rewritten>
         {{REWRITTEN_{content_type.upper()}}}
