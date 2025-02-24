@@ -66,7 +66,10 @@ def stream_rewritten_lines(
                 lines[0] = "".join([*fragments_starting_next_line, lines[0]])
                 fragments_starting_next_line = []
             for line in lines:
-                if line.startswith("</rewritten>"):
+                if line.endswith("</rewritten>"):
+                    prefix = line.removesuffix("</rewritten>")
+                    if prefix:
+                        yield prefix
                     break
                 yield line
             fragments_starting_next_line.append(start_of_next_line)
@@ -86,8 +89,7 @@ def _make_rewrite_prompt(
     if rewrite_range == (0, len(document_lines)):
         # Full file case -- no need for rewrite markers.
         return textwrap.dedent(
-            f"""
-            Here's a file of {filetype} that I'm going to ask you to make an edit to.
+            f"""Here's a file of {filetype} that I'm going to ask you to make an edit to.
 
             <document>
             {"\n".join(document_lines)}
@@ -143,8 +145,7 @@ def _make_rewrite_prompt(
         diagnostic_prompt = ""
 
     return textwrap.dedent(
-        f"""
-        Here's a file of {filetype} that I'm going to ask you to make an edit to.
+        f"""Here's a file of {filetype} that I'm going to ask you to make an edit to.
 
         The section you'll need to rewrite is marked with <rewrite_this></rewrite_this> tags.
 
