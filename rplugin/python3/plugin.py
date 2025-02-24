@@ -7,8 +7,10 @@ from structs.diagnostic import Diagnostic
 
 
 def escape_string(s: str) -> str:
-    # Replace single backslashes with double backslashes,
-    # then quotes with escaped quotes.
+    """
+    Replace single backslashes with double backslashes,
+    then quotes with escaped quotes.
+    """
     return s.replace("\\", "\\\\").replace('"', r"\"")
 
 
