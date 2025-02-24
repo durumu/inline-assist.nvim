@@ -2,6 +2,9 @@
 
 A Neovim plugin implementing the AI inline assist feature from editors like Zed. Uses Claude Sonnet under the hood. Created for my own personal use, so it's not very configurable.
 
+https://github.com/user-attachments/assets/cdd533d2-aeef-4307-a193-c78a2c72f70f
+
+
 ## How to use
 
 Highlight some text in visual mode, then type `:InlineAssist Do some stuff`.
