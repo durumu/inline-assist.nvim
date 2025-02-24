@@ -37,7 +37,7 @@ def stream_rewritten_lines(
     )
 
     stream = anthropic_client().messages.create(
-        model="claude-3-5-sonnet-latest",
+        model="claude-3-7-sonnet-latest",
         max_tokens=8192,
         messages=[
             {"role": "user", "content": prompt},
