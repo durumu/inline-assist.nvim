@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pynvim
 
+from diff import Operation, stream_diff
 from llm import stream_rewritten_lines
 from structs.diagnostic import Diagnostic
 
@@ -58,13 +59,8 @@ class InlineAssist:
             relevant_diagnostics,
         )
 
-        buf[start_lnum:end_lnum] = ""
-        for i, line in enumerate(rewrite_stream):
-            insert_lnum = start_lnum + i
-            # We don't want an extra newline added.
-            insert_start = insert_lnum
-            insert_end = insert_lnum + 1 if i == 0 else insert_lnum
-            # janky but we want to fuse the undo
-            self.nvim.command(
-                f'undojoin | lua vim.api.nvim_buf_set_lines(0, {insert_start}, {insert_end}, false, {{"{escape_string(line)}"}})'
-            )
+        for op in stream_diff(buf[start_lnum:end_lnum], rewrite_stream):
+            op.apply(buf, lnum=start_lnum)  # type: ignore
+            # self.nvim.command(
+            #     f'undojoin | lua vim.api.nvim_buf_set_lines(0, {insert_start}, {insert_end}, false, {{"{escape_string(line)}"}})'
+            # )
