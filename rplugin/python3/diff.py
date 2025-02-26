@@ -10,18 +10,19 @@ class Operation:
     offset_start: int
     offset_end: int
     lines: list[str]
+    debug_info: str | None = None
 
     @classmethod
     def insert_before(cls, line_number: int, line: str):
-        return cls(line_number, line_number, [line])
+        return cls(line_number, line_number, [line], "insert_before")
 
     @classmethod
     def delete(cls, start_lnum: int, end_lnum: int):
-        return cls(start_lnum, end_lnum, [])
+        return cls(start_lnum, end_lnum, [], "delete")
 
     @classmethod
     def replace_line(cls, line_number: int, line: str):
-        return cls(line_number, line_number + 1, [line])
+        return cls(line_number, line_number + 1, [line], "replace_line")
 
     def apply(self, buf: list[str], lnum: int = 0):
         buf[lnum + self.offset_start : lnum + self.offset_end] = self.lines
@@ -41,6 +42,7 @@ def stream_diff(
             hash_to_lnums[hash_line(line)].append(i)
 
     buffer_lnum = 0
+    net_lines_inserted = 0
     for line in rewritten_lines:
         stripped_line = line.strip()
         if (
@@ -51,14 +53,15 @@ def stream_diff(
             # Both lines are whitespace. Let's just replace.
             yield Operation.replace_line(buffer_lnum, line)
         elif occurrences := hash_to_lnums.get(hash_line(stripped_line)):
-            first_original_occurrence = occurrences.pop(0)
+            first_original_occurrence = occurrences.pop(0) + net_lines_inserted
             # insertion_point = first_original_occurrence + offset
             if first_original_occurrence > buffer_lnum:
                 yield Operation.delete(buffer_lnum, first_original_occurrence)
-                buffer_lnum += first_original_occurrence - buffer_lnum
+                net_lines_inserted -= first_original_occurrence - buffer_lnum
             yield Operation.replace_line(buffer_lnum, line)
         else:
             yield Operation.insert_before(buffer_lnum, line)
+            net_lines_inserted += 1
         buffer_lnum += 1
 
     if buffer_lnum <= len(original_lines):
@@ -120,6 +123,27 @@ def test_diff_insert():
     _test_diff(before, after)
 
 
+def test_diff_remove():
+    before = textwrap.dedent(
+        '''
+        def add_one(x):
+            """
+            This is a docstring
+            """
+            return x + 1
+        '''
+    )
+
+    after = textwrap.dedent(
+        """
+        def add_one(x):
+            return x + 1
+        """
+    )
+
+    _test_diff(before, after)
+
+
 def test_diff_change():
     before = textwrap.dedent(
         """
@@ -142,17 +166,17 @@ def test_diff_whitespace():
     before = textwrap.dedent(
         """
         def say_hi():
-            print("hello")
+            if hi_enabled():
+                print("hello")
+            else:
+                print("goodbye")
         """
     )
 
     after = textwrap.dedent(
         """
         def say_hi():
-            if hi_enabled():
-                print("hello")
-            else:
-                print("goodbye")
+            print("hello")
         """
     )
 
