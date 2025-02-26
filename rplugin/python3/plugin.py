@@ -15,6 +15,28 @@ def escape_string(s: str) -> str:
     return s.replace("\\", "\\\\").replace('"', r"\"")
 
 
+def apply_operation(
+    nvim: pynvim.Nvim, op: Operation, *, lnum: int, undojoin: bool
+) -> None:
+    """
+    Equivalent of op.apply(nvim.current.buffer, lnum), except it supports joining undos.
+    """
+    prefix = "undojoin | " if undojoin else ""
+    lnum_start = lnum + op.offset_start
+    lnum_end = lnum + op.offset_end
+    lines_lua_array = "".join([
+        "{",
+        ", ".join(f'"{escape_string(line)}"' for line in op.lines),
+        "}",
+    ])
+
+    # 0 is hardcoded buffer number (means current buffer)
+    # false disables strict_indexing (out of bounds indices should not error)
+    nvim.command(
+        f"{prefix}lua vim.api.nvim_buf_set_lines(0, {lnum_start}, {lnum_end}, false, {lines_lua_array})"
+    )
+
+
 @pynvim.plugin
 class InlineAssist:
     nvim: pynvim.Nvim
@@ -59,8 +81,5 @@ class InlineAssist:
             relevant_diagnostics,
         )
 
-        for op in stream_diff(buf[start_lnum:end_lnum], rewrite_stream):
-            op.apply(buf, lnum=start_lnum)  # type: ignore
-            # self.nvim.command(
-            #     f'undojoin | lua vim.api.nvim_buf_set_lines(0, {insert_start}, {insert_end}, false, {{"{escape_string(line)}"}})'
-            # )
+        for i, op in enumerate(stream_diff(buf[start_lnum:end_lnum], rewrite_stream)):
+            apply_operation(self.nvim, op, lnum=start_lnum, undojoin=i != 0)
